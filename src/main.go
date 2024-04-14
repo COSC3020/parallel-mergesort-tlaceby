@@ -50,6 +50,7 @@ func merge(arr []int, left, mid, right int) {
 }
 
 func parallelMergesort(arr []int) {
+	runtime.GOMAXPROCS(runtime.NumCPU()) // Make sure go uses most cores possible
 	var wg sync.WaitGroup
 	var numGoroutines = runtime.NumCPU()
 	var chunkSize = len(arr) / numGoroutines

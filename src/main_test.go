@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"math/rand/v2"
+	"runtime"
 	"slices"
 	"testing"
+	"time"
 )
 
 func randRange(min, max int) int {
@@ -32,10 +34,14 @@ func TestEmptyCase(t *testing.T) {
 }
 
 func TestSortingArrays(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU()) // Make sure go uses most cores possible
+	var startTime = time.Now()
 	var numberSlices = 100 // iterations
+	var pwon float32 = 0   // # times parallel won
+	var mwon float32 = 0   // # times default merge won
 
 	for i := 0; i < numberSlices; i++ {
-		var arrSize = randRange(10, 25000)
+		var arrSize = randRange(1, 20000)
 		var arr = make([]int, arrSize)
 		var arrCopy = make([]int, arrSize)
 		var secondCopy = make([]int, arrSize)
@@ -49,13 +55,31 @@ func TestSortingArrays(t *testing.T) {
 		copy(arrCopy, arr)
 		copy(secondCopy, arr)
 
-		parallelMergesort(arr)  // parallel mergesort
-		mergesort(arrCopy)      // standard mergesort
-		slices.Sort(secondCopy) // go's built-in sort
+		start := time.Now()
+		parallelMergesort(arr) // parallel mergesort
+		elapsed := time.Since(start)
+		var best = elapsed
+
+		start = time.Now()
+		mergesort(arrCopy) // standard mergesort
+		elapsed = time.Since(start)
+
+		if best < elapsed {
+			pwon++
+		} else {
+			mwon++
+		}
+
+		slices.Sort(secondCopy) // go's built-in sort for a easy check of valid sorting
 
 		assert(arrCopy, arr, t)
 		assert(secondCopy, arr, t)
 	}
 
-	fmt.Printf("All %d Tests Passed\n", numberSlices)
+	var elapsedTime = time.Since(startTime).Seconds()
+	fmt.Printf("All %d Tests Passed in %.1f seconds.\n", numberSlices, elapsedTime)
+	fmt.Printf("Parallel Merge: %d \n", int(pwon))
+	fmt.Printf("Standard Merge: %d \n", int(mwon))
+
+	fmt.Printf("Parallel won %.1f%% \n", ((pwon / float32(numberSlices)) * 100))
 }
