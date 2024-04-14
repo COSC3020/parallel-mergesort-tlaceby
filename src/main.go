@@ -1,8 +1,10 @@
 package main
 
+import "sync"
+
 // Code is just translated from
 // https://github.com/COSC3020/mergesort-tlaceby
-func mergeSort(arr []int) []int {
+func mergesort(arr []int) []int {
 	n := len(arr)
 
 	for size := 1; size < n; size *= 2 {
@@ -44,11 +46,38 @@ func merge(arr []int, left, mid, right int) {
 	}
 }
 
+func parallelMergesort(arr []int) {
+	var wg sync.WaitGroup
+	var numGoroutines = min(100, len(arr)/5) // Make sure not too many go-routines are used.
+	var chunkSize = len(arr) / numGoroutines
+
+	for i := 0; i < numGoroutines; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+
+		if i == numGoroutines-1 {
+			end = len(arr)
+		}
+
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			// Creates a reference/window into the slice. DOES NOT create a copy
+			mergesort(arr[start:end])
+		}(start, end)
+	}
+
+	wg.Wait()
+
+	// Finaly call mergesort on the final array. This means there will be
+	mergesort(arr)
+}
+
 func main() {
 	arr := []int{1, 4, 6, 21, 5, 2, 65, 2, 9}
 	sorted := []int{1, 2, 2, 4, 5, 6, 9, 21, 65}
 
-	mergeSort(arr)
+	parallelMergesort(arr)
 
 	for indx, val := range arr {
 		if sorted[indx] != val {
@@ -57,4 +86,12 @@ func main() {
 	}
 
 	println("Passed")
+}
+
+func min(a, b int) int {
+	if a <= b {
+		return a
+	}
+
+	return b
 }
