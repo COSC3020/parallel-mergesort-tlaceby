@@ -50,7 +50,6 @@ func merge(arr []int, left, mid, right int) {
 }
 
 func parallelMergesort(arr []int) {
-	runtime.GOMAXPROCS(runtime.NumCPU()) // Make sure go uses most cores possible
 	var wg sync.WaitGroup
 	var numGoroutines = runtime.NumCPU()
 	var chunkSize = len(arr) / numGoroutines
@@ -73,7 +72,8 @@ func parallelMergesort(arr []int) {
 
 	wg.Wait()
 
-	// Finaly call mergesort on the final array. This means there will be
+	// Finaly call mergesort on the final array.
+	// since all subarrays will be sorted this will be much faster
 	mergesort(arr)
 }
 
