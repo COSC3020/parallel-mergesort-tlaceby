@@ -23,11 +23,19 @@ func assert(got []int, want []int, t *testing.T) {
 	}
 }
 
+func TestEmptyCase(t *testing.T) {
+	arr := []int{}
+	expected := []int{}
+
+	parallelMergesort(arr)
+	assert(arr, expected, t)
+}
+
 func TestSortingArrays(t *testing.T) {
 	var numberSlices = 100 // iterations
 
 	for i := 0; i < numberSlices; i++ {
-		var arrSize = randRange(1000, 25000)
+		var arrSize = randRange(10, 25000)
 		var arr = make([]int, arrSize)
 		var arrCopy = make([]int, arrSize)
 		var secondCopy = make([]int, arrSize)

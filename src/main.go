@@ -1,12 +1,13 @@
 package main
 
 import (
+	"runtime"
 	"sync"
 )
 
 // Code is just translated from
 // https://github.com/COSC3020/mergesort-tlaceby
-func mergesort(arr []int) {
+func mergesort(arr []int) []int {
 	n := len(arr)
 
 	for size := 1; size < n; size *= 2 {
@@ -16,6 +17,8 @@ func mergesort(arr []int) {
 			merge(arr, left, mid, right)
 		}
 	}
+
+	return arr
 }
 
 func merge(arr []int, left, mid, right int) {
@@ -47,40 +50,30 @@ func merge(arr []int, left, mid, right int) {
 }
 
 func parallelMergesort(arr []int) {
-	// If the number of elements is small then just sort it using same thread.
-	if len(arr) < 100 {
-		mergesort(arr)
-		return
-	}
-
-	var mid = len(arr) / 2
-	var left = arr[:mid]
-	var right = arr[mid:]
-
 	var wg sync.WaitGroup
-	wg.Add(2)
+	var numGoroutines = runtime.NumCPU()
+	var chunkSize = len(arr) / numGoroutines
 
-	go func() {
-		defer wg.Done()
-		parallelMergesort(left)
-	}()
+	for i := 0; i < numGoroutines; i++ {
+		var start = i * chunkSize
+		var end = start + chunkSize
 
-	go func() {
-		defer wg.Done()
-		parallelMergesort(right)
-	}()
+		if i == numGoroutines-1 {
+			end = len(arr)
+		}
+
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			// Creates a reference/window into the slice. DOES NOT create a copy
+			mergesort(arr[start:end])
+		}(start, end)
+	}
 
 	wg.Wait()
 
-	copy(arr, parallelMerge(left, right)) // single linear operation
-}
-
-func parallelMerge(left, right []int) []int {
-	var sorted = make([]int, len(left)+len(right))
-
-	// Try to come up with a way to merge in parallel?
-
-	return sorted
+	// Finaly call mergesort on the final array. This means there will be
+	mergesort(arr)
 }
 
 func main() {
