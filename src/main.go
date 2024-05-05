@@ -1,90 +1,85 @@
 package main
 
 import (
+	"math"
 	"runtime"
 	"sync"
 )
 
-// Code is just translated from
-// https://github.com/COSC3020/mergesort-tlaceby
-func mergesort(arr []int) []int {
-	n := len(arr)
-
-	for size := 1; size < n; size *= 2 {
-		for left := 0; left < n-size; left += 2 * size {
-			mid := left + size - 1
-			right := min(left+2*size-1, n-1)
-			merge(arr, left, mid, right)
+// Code inspired by my mergesort and async exersise.
+// Additional resources include: https://www.geeksforgeeks.org/merge-sort-using-multi-threading/
+func merge(arr []int, aux []int, left, mid, right int) {
+	i, j, k := left, mid+1, left
+	for k <= right {
+		if i > mid {
+			aux[k] = arr[j]
+			j++
+		} else if j > right {
+			aux[k] = arr[i]
+			i++
+		} else if arr[i] <= arr[j] {
+			aux[k] = arr[i]
+			i++
+		} else {
+			aux[k] = arr[j]
+			j++
 		}
+		k++
 	}
-
-	return arr
+	for k = left; k <= right; k++ {
+		arr[k] = aux[k]
+	}
 }
 
-func merge(arr []int, left, mid, right int) {
-	leftIndex := left
-	rightIndex := mid + 1
+func parallelMergeSort(arr, aux []int, left, right int, depthLimit int) {
+	if left < right {
+		if depthLimit == 0 {
+			// depth is large enough do it sequentialy. We dont have infinite threads/cores
+			mergesortSequential(arr, aux, left, right)
+		} else {
+			mid := (left + right) / 2
+			var wg sync.WaitGroup
+			wg.Add(2)
 
-	// While there exist left or right subarrays
-	for leftIndex <= mid && rightIndex <= right {
-		// Do nothing as the left is less than right
-		if arr[leftIndex] <= arr[rightIndex] {
-			leftIndex++
-			continue
+			// Seperate into two processes and wait for both to finish
+			go func() {
+				defer wg.Done()
+				parallelMergeSort(arr, aux, left, mid, depthLimit-1)
+			}()
+			go func() {
+				defer wg.Done()
+				parallelMergeSort(arr, aux, mid+1, right, depthLimit-1)
+			}()
+
+			wg.Wait()
+			merge(arr, aux, left, mid, right)
 		}
+	}
+}
 
-		// Since the first element in left subarray is > then first element in right subarray
-		value := arr[rightIndex] // smallest of the two
-		shiftIndex := rightIndex
-
-		for shiftIndex != leftIndex {
-			arr[shiftIndex] = arr[shiftIndex-1]
-			shiftIndex--
-		}
-
-		arr[leftIndex] = value
-		leftIndex++
-		mid++
-		rightIndex++
+func mergesortSequential(arr, tmp_arr []int, left, right int) {
+	if left < right {
+		mid := (left + right) / 2
+		mergesortSequential(arr, tmp_arr, left, mid)
+		mergesortSequential(arr, tmp_arr, mid+1, right)
+		merge(arr, tmp_arr, left, mid, right)
 	}
 }
 
 func parallelMergesort(arr []int) {
-	var wg sync.WaitGroup
-	var numGoroutines = runtime.NumCPU()
-	var chunkSize = len(arr) / numGoroutines
-
-	for i := 0; i < numGoroutines; i++ {
-		var start = i * chunkSize
-		var end = start + chunkSize
-
-		if i == numGoroutines-1 {
-			end = len(arr)
-		}
-
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-			// Creates a reference/window into the slice. DOES NOT create a copy
-			mergesort(arr[start:end])
-		}(start, end)
-	}
-
-	wg.Wait()
-
-	// Finaly call mergesort on the final array.
-	// since all subarrays will be sorted this will be much faster
-	mergesort(arr)
+	tmp_arr := make([]int, len(arr))
+	depthLimit := int(math.Log2(float64(runtime.NumCPU()))) + 1
+	parallelMergeSort(arr, tmp_arr, 0, len(arr)-1, depthLimit)
 }
 
 func main() {
 	arr := []int{1, 4, 6, 21, 5, 2, 65, 2, 9}
-	sorted := []int{1, 2, 2, 4, 5, 6, 9, 21, 65}
+	expected := []int{1, 2, 2, 4, 5, 6, 9, 21, 65}
 
 	parallelMergesort(arr)
 
-	for indx, val := range arr {
-		if sorted[indx] != val {
+	for i, v := range arr {
+		if expected[i] != v {
 			panic("Array out of order")
 		}
 	}
@@ -93,7 +88,7 @@ func main() {
 }
 
 func min(a, b int) int {
-	if a <= b {
+	if a < b {
 		return a
 	}
 
